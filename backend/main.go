@@ -66,6 +66,101 @@ func main() {
 		})
 	}
 
+	//get all users
+	func getUsers(db *sql.DB) http.HandlerFunc {
+		return func(w http.ResponseWriter, r *http.Request) {
+			rows, err := db.Query("SELECT id, name, email FROM users")
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			defer rows.Close()
+
+			users := []User{}
+			for rows.Next() {
+				user := User{}
+				err := rows.Scan(&user.ID, &user.Name, &user.email)
+				if err != nil {
+					http.Error(w, err.Error(), http.StatusInternalServerError)
+					return
+				}
+				users = append(users, user)
+			}
+
+			json.NewEncoder(w).Encode(users)
+		}
+	}
+
+	//get user by id
+	func getUser(db *sql.DB) http.HandlerFunc {
+		return func(w http.ResponseWriter, r *http.Request) {
+			params := mux.Vars(r)
+			rows := db.QueryRow("SELECT id, name, email FROM users WHERE id = $1", params["id"])
+
+			user := User{}
+			err := rows.Scan(&user.ID, &user.Name, &user.email)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+
+			json.NewEncoder(w).Encode(user)
+		}
+	}
+
+	//create user
+	func createUser(db *sql.DB) http.HandlerFunc {
+		return func(w http.ResponseWriter, r *http.Request) {
+			var user User
+			json.NewDecoder(r.Body).Decode(&user)
+
+			err := db.QueryRow("INSERT INTO users (name, email) VALUES ($1, $2) RETURNING id", user.Name, user.email).Scan(&user.ID)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+
+			json.NewEncoder(w).Encode(user)
+		}
+	}
+
+	//update user
+	func updateUser(db *sql.DB) http.HandlerFunc {
+		return func(w http.ResponseWriter, r *http.Request) {
+			params := mux.Vars(r)
+			var user User
+			json.NewDecoder(r.Body).Decode(&user)
+
+			_, err := db.Exec("UPDATE users SET name = $1, email = $2 WHERE id = $3", user.Name, user.email, params["id"])
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+
+			w.WriteHeader(http.StatusOK)
+		}
+	}
+
+	//delete user
+
+	func deleteUser(db *sql.DB) http.HandlerFunc {
+		return func(w http.ResponseWriter, r *http.Request) {
+			params := mux.Vars(r)
+
+			_, err := db.Exec("DELETE FROM users WHERE id = $1", params["id"])
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+
+			w.WriteHeader(http.StatusOK)
+		}
+	}
+}
+
+
+
+
 	
 
 
